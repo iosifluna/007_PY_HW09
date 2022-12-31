@@ -1,0 +1,8 @@
+python-telegram-bot
+PyMySQL
+pymorphy3
+numpy
+psycopg2-binary
+scikit-learn
+re
+unicodedata
