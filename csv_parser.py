@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 import csv
 from pathlib import Path
