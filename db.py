@@ -1,37 +1,52 @@
-import pymysql
-
-from config import DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_SCHEMA
-
-
-CONN = pymysql.connect(host = DB_HOST, port = DB_PORT, user = DB_USER, password = DB_PASS, db = DB_SCHEMA, charset='utf8')
+from pathlib import Path
+import sqlite3
+from config import DB_SCHEMA
 
 ''' INSERT '''
 
-# Logging chat
-def insert_log(event, user_id, chat_id):
 
-    with CONN.cursor() as c:      
-        c.execute("INSERT INTO logs (event, user_id, chat_id, created_at) \
-                            VALUES (%s, %s, %s, CURRENT_TIMESTAMP());", (event, user_id, chat_id))
-        CONN.commit()
+def insert_log(event, user_id, chat_id):
+    '''Logging chat'''
+
+    con = sqlite3.connect(Path(__file__).parent / 'DATA' / DB_SCHEMA)
+    cur = con.cursor()
+    cur.execute('''INSERT INTO logs (event, user_id, chat_id, created_at) \
+                VALUES (?, ?, ?, DATETIME('NOW'))''', (event, user_id, chat_id))
+    cur.close()
+    con.commit()
+    con.close()
 
 
 ''' SELECT'''
 
-# Answers data
+
 def get_answers():
-    with CONN.cursor() as c: 
-        c.execute('SELECT id, answer FROM answers;')
-        CONN.commit()
+    '''Answers data'''
 
-        return c.fetchall()
+    con = sqlite3.connect(Path(__file__).parent / 'DATA' / DB_SCHEMA)
+    cur = con.cursor()
+    cur.execute('SELECT id, answer FROM answers')
+
+    retval = cur.fetchall()
+
+    cur.close()
+    con.commit()
+    con.close()
+
+    return retval
 
 
-# Questions data
 def get_questions():
-    with CONN.cursor() as c: 
-        c.execute('SELECT question, answer_id FROM questions;')
-        CONN.commit()
+    '''Questions data'''
 
-        return c.fetchall()
+    con = sqlite3.connect(Path(__file__).parent / 'DATA' / DB_SCHEMA)
+    cur = con.cursor()
+    cur.execute('SELECT question, answer_id FROM questions')
 
+    retval = cur.fetchall()
+
+    cur.close()
+    con.commit()
+    con.close()
+
+    return retval

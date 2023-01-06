@@ -11,37 +11,38 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline import make_pipeline
 from config import TOKEN
-
 telebot.apihelper.ENABLE_MIDDLEWARE = True
 bot = telebot.TeleBot(TOKEN)
 morph = pymorphy3.MorphAnalyzer(lang='ru')
 
 
-answer_id = [] 
+answer_id = []
 answer = dict()
 
 for row in db.get_answers():
-    answer[row[0]]=row[1]
+    answer[row[0]] = row[1]
 
 questions = []
 transform = 0
 
 for row in db.get_questions():
-	# Если текст вопроса не пустой
+    if transform % 50 == 0:
+        print(f'{transform}\r', end='')
+    # Если текст вопроса не пустой
     if row[0] > "":
-                
-  	    # Если в БД есть код ответа на вопрос
+
+        # Если в БД есть код ответа на вопрос
         if row[1] > 0:
             phrases = row[0]
 
-   		    # разбираем вопрос на слова
+            # разбираем вопрос на слова
             words = phrases.split(' ')
             phrase = ""
 
             for word in words:
-      	        # каждое слово из вопроса приводим в нормальную словоформу
+                # каждое слово из вопроса приводим в нормальную словоформу
                 word = morph.parse(word)[0].normal_form
-                # составляем фразу из нормализованных слов  
+                # составляем фразу из нормализованных слов
                 phrase = phrase + word + " "
 
             # Если длина полученной фразы больше 0 добавляем ей в массив вопросов и массив кодов ответов
@@ -51,13 +52,13 @@ for row in db.get_questions():
                 transform = transform + 1
 
 
-# Векторизируем вопросы в огромную матрицу 
+# Векторизируем вопросы в огромную матрицу
 # Перемножив фразы на слова из которых они состоят получим числовые значения
 vectorizer_q = TfidfVectorizer()
 vectorizer_q.fit(questions)
 matrix_big_q = vectorizer_q.transform(questions)
-print ("Размер матрицы: ")
-print (matrix_big_q.shape)
+print("Размер матрицы: ")
+print(matrix_big_q.shape)
 
 
 # Трансформируем матрицу вопросов в меньший размер для уменьшения объема данных
@@ -68,25 +69,25 @@ if transform > 200:
     transform = 200
 print(transform)
 
-svd_q = TruncatedSVD(n_components = transform)
+svd_q = TruncatedSVD(n_components=transform)
 svd_q.fit(matrix_big_q)
 
 # получим трансформированную матрицу
 matrix_small_q = svd_q.transform(matrix_big_q)
-print ("Коэффициент уменьшения матрицы: ")
-print ( svd_q.explained_variance_ratio_.sum())
+print("Коэффициент уменьшения матрицы: ")
+print(svd_q.explained_variance_ratio_.sum())
 
 # Поиск ответов
 ns_q = ns.NeighborSampler()
-ns_q.fit(matrix_small_q, answer_id) 
+ns_q.fit(matrix_small_q, answer_id)
 pipe_q = make_pipeline(vectorizer_q, svd_q, ns_q)
-
 
 
 ''' START '''
 
+
 @bot.message_handler(commands=['start'])
-def start(message):    
+def start(message):
     text = "Привет, {0.first_name}! Поговорим?".format(message.from_user)
     bot.send_message(message.chat.id, text)
 
@@ -96,28 +97,28 @@ def start(message):
 ''' TEXT HANDLER '''
 
 # Отвечаем на текст пользователя
+
+
 @bot.message_handler(func=lambda message: True)
 def get_text_messages(message):
     message.text = h.normalize_caseless(message.text)
     log.user(message)
 
     # разобьём фразу на массив слов, используя split. '\W' - любой символ кроме буквы и цифры
-    words= re.split('\W', message.text)
-    phrase=""
+    words = re.split('\W', message.text)
+    phrase = ""
 
     # разберем фразу на слова, нормализуем каждое и соберем фразу
     for word in words:
-        word = morph.parse(word)[0].normal_form  
+        word = morph.parse(word)[0].normal_form
         phrase = phrase + word + " "
 
-    # получим код ответа вызывая нашу функцию 
+    # получим код ответа вызывая нашу функцию
     reply_id = int(pipe_q.predict([phrase.strip()]))
-    
+
     # отправим ответ
     bot.send_message(message.from_user.id, answer[reply_id])
     log.bot(answer[reply_id], message.chat.id)
-
-
 
     # if message.text =="не так":
     #     bot.send_message(message.from_user.id, "а как?")
